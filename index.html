@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>Chess Master - Phakawat Edition</title>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background: #1a1a1a; color: #fff; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 10px; }
+        .menu-container { background: #2d3436; padding: 30px; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.5); text-align: center; width: 350px; margin-top: 50px; }
+        .game-container { display: none; width: 100%; max-width: 900px; gap: 20px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+        
+        /* สไตล์ปุ่ม */
+        .btn { padding: 15px 25px; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; width: 100%; margin: 10px 0; font-size: 1.1rem; transition: 0.3s; color: white; }
+        .btn-blue { background: #0984e3; }
+        .btn-blue:hover { background: #74b9ff; transform: translateY(-2px); }
+        .btn-green { background: #00b894; }
+        .btn-orange { background: #e67e22; }
+        .btn-red { background: #d63031; }
+        .btn-back { background: #636e72; margin-top: 20px; }
+
+        .panel { display: none; }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: none; box-sizing: border-box; font-size: 1rem; }
+
+        /* ส่วนของบอร์ดและแชท */
+        #myBoard { width: 100%; max-width: 450px; border: 5px solid #636e72; border-radius: 8px; }
+        .chat-side { width: 320px; background: #34495e; border-radius: 10px; display: flex; flex-direction: column; height: 500px; }
+        #chat-display { flex: 1; overflow-y: auto; padding: 10px; background: #2c3e50; font-size: 0.9rem; border-radius: 10px 10px 0 0; }
+        .status-bar { background: #0984e3; padding: 12px; border-radius: 8px; margin-bottom: 10px; text-align: center; font-weight: bold; width: 100%; max-width: 450px; }
+        
+        .msg { padding: 8px; border-radius: 8px; margin-bottom: 5px; max-width: 85%; }
+        .msg.me { background: #0984e3; margin-left: auto; }
+        .msg.them { background: #4b6584; }
+        .highlight-hint { box-shadow: inset 0 0 3px 3px rgba(255, 255, 0, 0.7); }
+    </style>
+</head>
+<body>
+
+    <div id="main-menu" class="menu-container">
+        <h1 style="margin-bottom: 20px;">♟️ Chess Master</h1>
+        
+        <div id="panel-home">
+            <button class="btn btn-blue" onclick="showPanel('difficulty')">1. เล่นคนเดียว (VS AI)</button>
+            <button class="btn btn-blue" onclick="showPanel('online')">2. เล่นออนไลน์ (Multiplayer)</button>
+        </div>
+
+        <div id="panel-difficulty" class="panel">
+            <h3>ระดับความยาก AI</h3>
+            <button class="btn btn-green" onclick="startSingle(1)">ง่าย</button>
+            <button class="btn btn-green" onclick="startSingle(2)">ปานกลาง</button>
+            <button class="btn btn-green" onclick="startSingle(3)">ยาก</button>
+            <button class="btn btn-back" onclick="showPanel('home')">ย้อนกลับ</button>
+        </div>
+
+        <div id="panel-online" class="panel">
+            <h3>ระบบออนไลน์</h3>
+            <input type="text" id="roomName" placeholder="ชื่อห้อง">
+            <input type="text" id="playerName" placeholder="ชื่อเล่นของคุณ">
+            <button class="btn btn-green" onclick="setupOnline('host')">สร้างห้อง & รอเพื่อน</button>
+            <button class="btn btn-orange" onclick="setupOnline('guest')">ขอเข้าห้องเพื่อน</button>
+            <button class="btn btn-back" onclick="showPanel('home')">ย้อนกลับ</button>
+        </div>
+    </div>
+
+    <div id="game-screen" class="game-container">
+        <div style="flex: 1; min-width: 350px; max-width: 450px;">
+            <div id="approval-box" style="display:none; background:#e67e22; padding:15px; border-radius:10px; margin-bottom:10px; text-align:center;">
+                <span id="req-text">กำลังรอคำขอ...</span><br>
+                <button class="btn btn-green" style="width:auto; margin-top:10px; padding:5px 20px;" onclick="approveJoin()">อนุญาตให้เข้าเล่น</button>
+            </div>
+
+            <div class="status-bar" id="status">กำลังโหลด...</div>
+            <div id="myBoard"></div>
+            <button class="btn btn-red" onclick="location.reload()">ออกจากเกม</button>
+        </div>
+
+        <div class="chat-side" id="chat-side">
+            <div style="padding:15px; text-align:center; font-weight:bold; border-bottom:1px solid #4b6584;">Room Chat</div>
+            <div id="chat-display"></div>
+            <div style="padding:10px; background:#2c3e50; display:flex; gap:5px;">
+                <input type="text" id="chatInput" style="margin:0;" placeholder="พิมพ์ข้อความ..." onkeydown="if(event.key==='Enter') sendChat()">
+                <button class="btn btn-green" style="width:auto; margin:0;" onclick="sendChat()">ส่ง</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <script>
+        // --- 1. ตั้งค่าพื้นฐาน ---
+        const firebaseConfig = { databaseURL: "https://sample-chess-default-rtdb.firebaseio.com/" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const myId = Math.random().toString(36).substr(2, 5);
+        
+        var board = null, game = new Chess(), currentRoomRef = null, isOnline = false, aiLevel = 1;
+
+        function showPanel(id) {
+            $('.panel, #panel-home').hide();
+            $('#panel-' + id).show();
+        }
+
+        // --- 2. ระบบเล่นคนเดียว (AI) ---
+        function startSingle(level) {
+            aiLevel = level; isOnline = false;
+            $('#main-menu').hide(); $('#game-screen').css('display', 'flex'); $('#chat-side').hide();
+            initBoard();
+            updateStatus("โหมดฝึกฝน: ระดับ " + level);
+        }
+
+        function aiMove() {
+            if (game.game_over()) return;
+            const moves = game.moves();
+            const move = moves[Math.floor(Math.random() * moves.length)];
+            setTimeout(() => {
+                game.move(move);
+                board.position(game.fen());
+                updateStatus();
+            }, 500 * aiLevel);
+        }
+
+        // --- 3. ระบบออนไลน์ (Firebase) ---
+        function setupOnline(role) {
+            const room = $('#roomName').val();
+            const name = $('#playerName').val();
+            if(!room || !name) return alert("กรุณาใส่ข้อมูลให้ครบค่ะ");
+
+            isOnline = true;
+            currentRoomRef = db.ref('rooms/' + room);
+            $('#main-menu').hide(); $('#game-screen').css('display', 'flex');
+            initBoard();
+
+            if(role === 'host') {
+                currentRoomRef.set({ hostId: myId, hostName: name, status: 'waiting', fen: 'start' });
+                updateStatus("รอเพื่อนขอเข้าห้อง " + room);
+            } else {
+                currentRoomRef.update({ guestId: myId, guestName: name, requestJoin: true });
+                updateStatus("กำลังรอ Host อนุญาต...");
+            }
+            startNetworkListener();
+        }
+
+        function startNetworkListener() {
+            currentRoomRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if(!data) return;
+                
+                // ระบบขออนุญาต (Approval)
+                if(data.status === 'waiting' && data.requestJoin && data.hostId === myId) {
+                    $('#approval-box').show();
+                    $('#req-text').text(`คุณ ${data.guestName} ขอเข้าเล่นด้วยค่ะ`);
+                }
+                
+                if(data.status === 'active') {
+                    $('#approval-box').hide();
+                    if(data.fen !== game.fen()) {
+                        game.load(data.fen);
+                        board.position(game.fen());
+                        updateStatus();
+                    }
+                }
+            });
+
+            currentRoomRef.child('chat').on('child_added', (snapshot) => {
+                const d = snapshot.val();
+                const style = d.sender === myId ? 'me' : 'them';
+                $('#chat-display').append(`<div class="msg ${style}">${d.message}</div>`);
+                $('#chat-display').scrollTop($('#chat-display')[0].scrollHeight);
+            });
+        }
+
+        function approveJoin() {
+            currentRoomRef.update({ status: 'active', requestJoin: false });
+        }
+
+        // --- 4. การจัดการบอร์ดเกม ---
+        function initBoard() {
+            board = Chessboard('myBoard', {
+                draggable: true,
+                position: 'start',
+                // แก้ไขรูปภาพหมากหายที่นี่
+                pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+                onDragStart: (source, piece) => {
+                    if (game.game_over()) return false;
+                    if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+                        (game.turn() === 'b' && piece.search(/^w/) !== -1)) return false;
+                },
+                onDrop: (source, target) => {
+                    let move = game.move({ from: source, to: target, promotion: 'q' });
+                    if (!move) return 'snapback';
+                    
+                    if(isOnline) {
+                        currentRoomRef.update({ fen: game.fen() });
+                    } else {
+                        updateStatus();
+                        aiMove();
+                    }
+                }
+            });
+        }
+
+        function updateStatus(msg) {
+            const status = msg || (game.in_checkmate() ? "จบเกม! รุกฆาต" : "ตาของสี" + (game.turn()==='w'?'ขาว':'ดำ'));
+            $('#status').text(status);
+        }
+
+        function sendChat() {
+            const text = $('#chatInput').val();
+            if(text && currentRoomRef) {
+                currentRoomRef.child('chat').push({ sender: myId, message: text });
+                $('#chatInput').val('');
+            }
+        }
+    </script>
+</body>
+</html>
